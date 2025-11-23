@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import UploadFile, File
 import io
 import pandas as pd
+
 # --------------------------------------------------
 # PATH SETUP
 # --------------------------------------------------
@@ -49,28 +50,7 @@ print(f"[FusionPredictor] Loaded {len(_risk_df):,} transactions into memory.")
 # --------------------------------------------------
 
 def get_tx_risk(tx_id: int) -> Optional[Dict[str, Any]]:
-    """
-    Look up a single transaction / wallet by txId and return its risk info.
-
-    Parameters
-    ----------
-    tx_id : int
-        The transaction ID / node ID in the Elliptic dataset.
-
-    Returns
-    -------
-    dict or None
-        Example:
-        {
-          "txId": 72631257,
-          "fraud_prob": 0.9998,
-          "gnn_fraud_prob": 0.64,
-          "anomaly_score_norm": 0.08,
-          "risk_score": 71.2,
-          "alert": "🟡 High Risk — Add to Watchlist"
-        }
-        Returns None if txId not found.
-    """
+    """Get transaction risk by txId"""
     try:
         row = _risk_df.loc[tx_id]
     except KeyError:
@@ -87,24 +67,7 @@ def get_tx_risk(tx_id: int) -> Optional[Dict[str, Any]]:
 
 
 def get_batch_risk(tx_ids: List[int]) -> pd.DataFrame:
-    """
-    Get risk info for a list of txIds.
-    Useful for CSV uploads from the frontend.
-
-    Parameters
-    ----------
-    tx_ids : List[int]
-
-    Returns
-    -------
-    pandas.DataFrame
-        Columns: txId, fraud_prob, gnn_fraud_prob,
-                 anomaly_score_norm, risk_score, alert
-
-        Rows where txId was not found are dropped.
-        You can handle 'missing' yourself in the API layer.
-    """
-    # Deduplicate while preserving order
+    """Get batch transaction risks"""
     seen = set()
     ordered_ids = []
     for tid in tx_ids:
@@ -117,15 +80,94 @@ def get_batch_risk(tx_ids: List[int]) -> pd.DataFrame:
 
 
 def get_top_risky(n: int = 10) -> pd.DataFrame:
-    """
-    Convenience helper: return top-N riskiest transactions
-    for dashboards / default view.
-
-    Returns
-    -------
-    DataFrame with same columns as final_risk_scored, sorted by risk_score desc.
-    """
+    """Get top N riskiest transactions"""
     return _risk_df.reset_index().sort_values("risk_score", ascending=False).head(n)
+
+
+# --------------------------------------------------
+# FUSION PREDICTOR CLASS
+# --------------------------------------------------
+
+class FusionPredictor:
+    def __init__(self):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        data_dir = os.path.join(base_dir, "..", "data", "raw")
+
+        # Load edge list for graph visualization
+        edgelist_path = os.path.join(data_dir, "elliptic_txs_edgelist.csv")
+        if os.path.exists(edgelist_path):
+            self.edgelist = pd.read_csv(edgelist_path)
+            print(f"[FusionPredictor] Loaded {len(self.edgelist)} edges from edgelist")
+        else:
+            print(f"⚠️ Warning: edgelist not found at {edgelist_path}")
+            self.edgelist = pd.DataFrame(columns=["txId1", "txId2"])
+
+        # Load risk table
+        risk_path = os.path.join(base_dir, "..", "data", "processed", "final_risk_scored.csv")
+        self.df = pd.read_csv(risk_path)
+        self.df = self.df.drop_duplicates(subset=["txId"])
+        
+        # Store both indexed and non-indexed versions
+        self._df_indexed = self.df.set_index("txId")
+        
+        print(f"[FusionPredictor] Loaded {len(self.df)} transactions")
+
+    def get_by_id(self, tx_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get transaction data by txId
+        Returns dict with all transaction fields or None if not found
+        """
+        try:
+            row = self._df_indexed.loc[tx_id]
+            
+            # Helper function to handle NaN/Infinity values
+            def safe_float(value, default=0.0):
+                try:
+                    val = float(value)
+                    # Check for NaN or Infinity using math
+                    import math
+                    if math.isnan(val) or math.isinf(val):
+                        return default
+                    return val
+                except (ValueError, TypeError):
+                    return default
+            
+            # Convert row to dictionary with safe float handling
+            result = {
+                "txId": int(tx_id),
+                "fraud_prob": safe_float(row.get("fraud_prob", 0)),
+                "gnn_fraud_prob": safe_float(row.get("gnn_fraud_prob", 0)),
+                "risk_score": safe_float(row.get("risk_score", 0)),
+                "alert": str(row.get("alert", "Review transaction")),
+            }
+            
+            # Add anomaly score (handle different column names)
+            if "anomaly_score_norm" in row.index:
+                result["anomaly_score_norm"] = safe_float(row["anomaly_score_norm"])
+            elif "anomaly_score" in row.index:
+                result["anomaly_score"] = safe_float(row["anomaly_score"])
+            
+            # Add class/flag if exists (1 = illicit, 0 = licit, 2 = unknown)
+            if "class" in row.index:
+                class_val = row["class"]
+                if pd.notna(class_val):
+                    try:
+                        result["class"] = int(class_val)
+                    except (ValueError, TypeError):
+                        result["class"] = 2
+                else:
+                    result["class"] = 2
+            
+            return result
+            
+        except KeyError:
+            print(f"⚠️ Transaction {tx_id} not found in dataframe")
+            return None
+        except Exception as e:
+            print(f"❌ Error getting transaction {tx_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
 
 # --------------------------------------------------
@@ -133,16 +175,23 @@ def get_top_risky(n: int = 10) -> pd.DataFrame:
 # --------------------------------------------------
 
 if __name__ == "__main__":
-    # Example 1: single txId
+    # Test the class
+    predictor = FusionPredictor()
+    
+    # Example 1: single txId using class method
     example_tx = int(_risk_df.index[0])
-    print("\n[TEST] Single txId lookup:", example_tx)
+    print("\n[TEST] Single txId lookup using class:", example_tx)
+    print(predictor.get_by_id(example_tx))
+    
+    # Example 2: single txId using standalone function
+    print("\n[TEST] Single txId lookup using function:", example_tx)
     print(get_tx_risk(example_tx))
 
-    # Example 2: batch lookup
+    # Example 3: batch lookup
     example_ids = [int(x) for x in _risk_df.index[:5]]
     print("\n[TEST] Batch lookup:")
     print(get_batch_risk(example_ids))
 
-    # Example 3: top risky
+    # Example 4: top risky
     print("\n[TEST] Top 5 risky:")
     print(get_top_risky(5))
