@@ -110,7 +110,16 @@ class FusionPredictor:
         # Store both indexed and non-indexed versions
         self._df_indexed = self.df.set_index("txId")
         
+        # Debug: Print available columns
         print(f"[FusionPredictor] Loaded {len(self.df)} transactions")
+        print(f"[FusionPredictor] Available columns: {self.df.columns.tolist()}")
+        
+        # Check for class column
+        if "class" in self.df.columns:
+            flagged_count = (self.df["class"] == 1).sum()
+            print(f"[FusionPredictor] Found {flagged_count} flagged transactions")
+        else:
+            print("[FusionPredictor] ⚠️ No 'class' column found - flagging will use risk scores")
 
     def get_by_id(self, tx_id: int) -> Optional[Dict[str, Any]]:
         """
