@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #f5f5f5;
+  --bg: #0a0e1a;
+  --card: #111729;
+  --text: #e8ecf1;
+  --accent-cyan: #00d9ff;
+  --accent-green: #10f981;
+  --accent-purple: #c77dff;
+  --fraud: #ff006e;
+  --legit: #10f981;
+  --risk-mid: #ffb703;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    text-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(0, 217, 255, 0.8);
+  }
+}
+
+@keyframes scanLine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes oscillate {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-glow {
+  animation: glow 3s ease-in-out infinite;
+}
+
+.animate-scan {
+  animation: scanLine 0.6s ease-in-out;
+}
+
+.animate-oscillate {
+  animation: oscillate 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.glassmorphic {
+  background: rgba(20, 28, 50, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 217, 255, 0.15);
+}
+
+.glow-border {
+  border: 1px solid rgba(0, 217, 255, 0.3);
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.1),
+    inset 0 0 20px rgba(0, 217, 255, 0.05);
+}
+
+.glow-text-cyan {
+  color: #00d9ff;
+  text-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+}
+
+.glow-text-green {
+  color: #10f981;
+  text-shadow: 0 0 10px rgba(16, 249, 129, 0.5);
+}
+
+body {
+  background: linear-gradient(135deg, #000000 0%, #0a0e1a 100%);
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text);
+}
+
+html {
+  scroll-behavior: smooth;
+}
