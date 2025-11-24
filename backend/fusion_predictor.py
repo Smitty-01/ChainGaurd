@@ -88,119 +88,119 @@ def get_top_risky(n: int = 10) -> pd.DataFrame:
 # FUSION PREDICTOR CLASS
 # --------------------------------------------------
 
+
+
 class FusionPredictor:
     def __init__(self):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        data_dir = os.path.join(base_dir, "..", "data", "raw")
-
-        # Load edge list for graph visualization
-        edgelist_path = os.path.join(data_dir, "elliptic_txs_edgelist.csv")
-        if os.path.exists(edgelist_path):
-            self.edgelist = pd.read_csv(edgelist_path)
-            print(f"[FusionPredictor] Loaded {len(self.edgelist)} edges from edgelist")
-        else:
-            print(f"⚠️ Warning: edgelist not found at {edgelist_path}")
-            self.edgelist = pd.DataFrame(columns=["txId1", "txId2"])
-
-        # Load risk table
-        risk_path = os.path.join(base_dir, "..", "data", "processed", "final_risk_scored.csv")
+        """Initialize the fusion predictor with risk scores"""
+        base_dir = os.getcwd()
+        data_dir = os.path.join(base_dir, "data", "processed")
+        
+        # Load risk scores
+        risk_path = os.path.join(data_dir, "final_risk_scored.csv")
+        
+        if not os.path.exists(risk_path):
+            raise FileNotFoundError(f"Risk scores not found at: {risk_path}")
+        
+        print(f"[FusionPredictor] Loading risk table from {risk_path}")
         self.df = pd.read_csv(risk_path)
+        
+        # Remove duplicates
         self.df = self.df.drop_duplicates(subset=["txId"])
         
-        # Store both indexed and non-indexed versions
+        # Create indexed version for fast lookups
         self._df_indexed = self.df.set_index("txId")
         
-        # Debug: Print available columns
-        print(f"[FusionPredictor] Loaded {len(self.df)} transactions")
-        print(f"[FusionPredictor] Available columns: {self.df.columns.tolist()}")
+        print(f"[FusionPredictor] Loaded {len(self.df):,} transactions")
         
-        # Check for class column
-        if "class" in self.df.columns:
-            flagged_count = (self.df["class"] == 1).sum()
-            print(f"[FusionPredictor] Found {flagged_count} flagged transactions")
+        # Load edgelist for graph visualization
+        edgelist_path = os.path.join(base_dir, "data", "raw", "elliptic_txs_edgelist.csv")
+        if os.path.exists(edgelist_path):
+            self.edgelist = pd.read_csv(edgelist_path)
+            print(f"[FusionPredictor] Loaded {len(self.edgelist):,} edges")
         else:
-            print("[FusionPredictor] ⚠️ No 'class' column found - flagging will use risk scores")
+            print(f"⚠️ Warning: edgelist not found")
+            self.edgelist = pd.DataFrame(columns=["txId1", "txId2"])
 
     def get_by_id(self, tx_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Get transaction data by txId
-        Returns dict with all transaction fields or None if not found
-        """
+        """Get transaction risk data by txId"""
         try:
             row = self._df_indexed.loc[tx_id]
             
-            # Helper function to handle NaN/Infinity values
-            def safe_float(value, default=0.0):
+            # Safe float conversion
+            def safe_float(val, default=0.0):
                 try:
-                    val = float(value)
-                    # Check for NaN or Infinity using math
-                    import math
-                    if math.isnan(val) or math.isinf(val):
+                    v = float(val)
+                    if pd.isna(v) or not pd.api.types.is_number(v):
                         return default
-                    return val
-                except (ValueError, TypeError):
+                    return v
+                except:
                     return default
             
-            # Convert row to dictionary with safe float handling
-            result = {
+            return {
                 "txId": int(tx_id),
                 "fraud_prob": safe_float(row.get("fraud_prob", 0)),
                 "gnn_fraud_prob": safe_float(row.get("gnn_fraud_prob", 0)),
+                "anomaly_score_norm": safe_float(row.get("anomaly_score_norm", 0)),
                 "risk_score": safe_float(row.get("risk_score", 0)),
                 "alert": str(row.get("alert", "Review transaction")),
+                "is_fraud_predicted": int(row.get("is_fraud_predicted", 0)),
+                "class": int(row.get("class", 2)) if pd.notna(row.get("class")) else 2,
             }
-            
-            # Add anomaly score (handle different column names)
-            if "anomaly_score_norm" in row.index:
-                result["anomaly_score_norm"] = safe_float(row["anomaly_score_norm"])
-            elif "anomaly_score" in row.index:
-                result["anomaly_score"] = safe_float(row["anomaly_score"])
-            
-            # Add class/flag if exists (1 = illicit, 0 = licit, 2 = unknown)
-            if "class" in row.index:
-                class_val = row["class"]
-                if pd.notna(class_val):
-                    try:
-                        result["class"] = int(class_val)
-                    except (ValueError, TypeError):
-                        result["class"] = 2
-                else:
-                    result["class"] = 2
-            
-            return result
-            
         except KeyError:
-            print(f"⚠️ Transaction {tx_id} not found in dataframe")
+            print(f"⚠️ Transaction {tx_id} not found")
             return None
         except Exception as e:
-            print(f"❌ Error getting transaction {tx_id}: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"❌ Error: {e}")
             return None
 
+    def get_top(self, k: int = 10) -> List[Dict[str, Any]]:
+        """Get top K riskiest transactions"""
+        top = self.df.nlargest(k, "risk_score")
+        
+        results = []
+        for _, row in top.iterrows():
+            results.append({
+                "txId": int(row["txId"]),
+                "risk_score": float(row["risk_score"]),
+                "fraud_prob": float(row.get("fraud_prob", 0)),
+                "gnn_fraud_prob": float(row.get("gnn_fraud_prob", 0)),
+                "alert": str(row.get("alert", "Review")),
+                "class": int(row.get("class", 2)) if pd.notna(row.get("class")) else 2,
+            })
+        
+        return results
+    
+    def get_batch(self, tx_ids: List[int]) -> pd.DataFrame:
+        """Get multiple transactions at once"""
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_ids = []
+        for tid in tx_ids:
+            if tid not in seen:
+                seen.add(tid)
+                unique_ids.append(tid)
+        
+        # Get subset
+        subset = self._df_indexed.loc[
+            self._df_indexed.index.intersection(unique_ids)
+        ].reset_index()
+        
+        return subset
 
-# --------------------------------------------------
-# SIMPLE MANUAL TEST
-# --------------------------------------------------
 
+# === Test the predictor ===
 if __name__ == "__main__":
-    # Test the class
     predictor = FusionPredictor()
     
-    # Example 1: single txId using class method
-    example_tx = int(_risk_df.index[0])
-    print("\n[TEST] Single txId lookup using class:", example_tx)
-    print(predictor.get_by_id(example_tx))
+    # Test single lookup
+    first_tx = int(predictor.df["txId"].iloc[0])
+    print("\n[TEST] Single transaction:")
+    print(predictor.get_by_id(first_tx))
     
-    # Example 2: single txId using standalone function
-    print("\n[TEST] Single txId lookup using function:", example_tx)
-    print(get_tx_risk(example_tx))
-
-    # Example 3: batch lookup
-    example_ids = [int(x) for x in _risk_df.index[:5]]
-    print("\n[TEST] Batch lookup:")
-    print(get_batch_risk(example_ids))
-
-    # Example 4: top risky
+    # Test top risky
     print("\n[TEST] Top 5 risky:")
-    print(get_top_risky(5))
+    for tx in predictor.get_top(5):
+        print(f"  Tx {tx['txId']}: Risk={tx['risk_score']:.1f}, Alert={tx['alert']}")
+
+
