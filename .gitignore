@@ -35,6 +35,15 @@ notebooks/data/
 *.exe
 node_modules/
 
+data/
+notebooks/models/
+*.csv
+*.pt
+*.pth
+*.zip
+*.rar
+*.mp4
+*.exe
 
 # === OS / Editor noise ===
 .DS_Store
