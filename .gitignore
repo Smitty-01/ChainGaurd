@@ -1,12 +1,31 @@
-"node_modules/" 
-"*.pt" 
-"*.pth" 
-"node_modules/" 
-"*.pt" 
-"*.pth" 
-"*.h5" 
-"*.mp4" 
-"*.zip" 
-"*.rar" 
-"*.exe" 
-"data/" 
+# === Node / Next.js ===
+node_modules/
+.next/
+*.log
+
+# === Python ===
+__pycache__/
+*.pyc
+.venv/
+env/
+*.pkl
+*.pt
+*.pth
+*.h5
+
+# === Data / Models (DO NOT PUSH) ===
+data/
+models/
+*.csv
+*.xlsx
+*.json
+*.mp4
+*.zip
+*.rar
+*.exe
+
+# === OS / Editor noise ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
