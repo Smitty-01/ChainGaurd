@@ -24,6 +24,18 @@ models/
 *.rar
 *.exe
 
+data/
+notebooks/data/
+*.csv
+*.pt
+*.pth
+*.zip
+*.rar
+*.mp4
+*.exe
+node_modules/
+
+
 # === OS / Editor noise ===
 .DS_Store
 Thumbs.db
