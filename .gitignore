@@ -8,44 +8,29 @@ __pycache__/
 *.pyc
 .venv/
 env/
+
+# === Large ML Artifacts (DO NOT PUSH) ===
+data/
+models/
+notebooks/data/
+notebooks/models/
+
+# === Machine Learning Weights / Datasets ===
 *.pkl
 *.pt
 *.pth
 *.h5
-
-# === Data / Models (DO NOT PUSH) ===
-data/
-models/
 *.csv
 *.xlsx
 *.json
+
+# === Video, binary, compressed assets ===
 *.mp4
 *.zip
 *.rar
 *.exe
 
-data/
-notebooks/data/
-*.csv
-*.pt
-*.pth
-*.zip
-*.rar
-*.mp4
-*.exe
-node_modules/
-
-data/
-notebooks/models/
-*.csv
-*.pt
-*.pth
-*.zip
-*.rar
-*.mp4
-*.exe
-
-# === OS / Editor noise ===
+# === IDE / OS noise ===
 .DS_Store
 Thumbs.db
 .vscode/
