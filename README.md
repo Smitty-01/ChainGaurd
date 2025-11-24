@@ -198,41 +198,5 @@ ChainGuard/
 
 ---
 
-## 🤝 Team
 
-Team: **Bit Flippers**
-Use for research, education & AML innovation.
 
----
-
-## ⭐ Support
-
-```text
-If this project helped you…
-→ ⭐ Give the repo a Star
-→ 🗣 Share with blockchain researchers
-```
-
----
-
-## 🎤 Pitch Tagline
-
-> **ChainGuard uncovers hidden criminal financing patterns across blockchain networks — before the damage is done.**
-
----
-
-### 💡 Want the README even better?
-
-I can optionally add:
-
-✔ Custom logo + banner
-✔ Graph images + screenshots
-✔ Shields badges (version, python, stars)
-✔ Live demo GIF
-✔ Citation / publication section
-
----
-
-Reply with **A** if you want me to:
-
-📌 Create banner + logo & add visuals to README automatically.
